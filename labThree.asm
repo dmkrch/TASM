@@ -104,9 +104,25 @@ delete endp
 
 ; procedure that outputs number in bx
 output proc
+	push cx
+	push ax
+	push bx
+
 	xor cx, cx
 	mov ax, bx
 	
+	test bx, bx		; if bx is negative
+	jns lp2			; if not - just printing number
+	neg bx
+
+	mov dl, 45
+	mov ah, 02h
+	int 21h
+
+
+	mov ax, bx
+	
+		
 lp2:	xor dx, dx
 	inc cx
 	div [ten]		; in ax - number / 10	
@@ -122,7 +138,10 @@ lp3:	pop dx
 
 	loop lp3
 
-end_lp2:ret
+end_lp2:pop bx
+	pop ax
+	pop cx
+	ret
 output endp	
 
 	
@@ -130,13 +149,27 @@ output endp
 start:	mov ax, @data
 	mov ds, ax
 
-	call input		
-	push bx
-	call input	; second numb in bx
-	pop ax		; first nubm in ax
+	;input of first number
+	mov ah, 09h
+	lea dx, firstN
+	int 21h	
+	call input		; now in bx - input number		
+	
+	push bx			; in stack - first number
+;input of second number	
+	mov ah, 09h
+	lea dx, secondN
+	int 21h
+	call input 		; in bx - second number
+;calculating sum of numbers
+	pop ax			; in ax - first number
+	add bx, ax		; in bx: first number + second number	
 
-	add bx, ax	; result in bx
-	call output
+;printing result of sum
+	mov ah, 09h
+	lea dx, result
+	int 21h
+	call output		; outputting bx number	
 
 	mov ah, 4ch
 	int 21h
