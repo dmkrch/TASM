@@ -1,10 +1,11 @@
 model small
 .stack 100h
 .data
-a dw 2	
+a dw 2
 b dw 3
-c dw 2
-d dw 18
+c dw 4
+d dw 6
+
 .code
 start:	mov ax, @data
 	mov ds, ax
