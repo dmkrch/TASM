@@ -12,7 +12,7 @@ start:	mov ax, @data
 
 
 	mov ax, [a]	; in ax - a
-	mul [a]		; in ax - a^2
+	
 	
 	push ax		; a^2	in stack	
 
