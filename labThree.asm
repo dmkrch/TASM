@@ -168,6 +168,7 @@ carry endp
 	
 start:	mov ax, @data
 	mov ds, ax
+
 ;input of numbers
 	lea dx, firstN
 	mov ah, 09h
@@ -193,7 +194,7 @@ start:	mov ax, @data
 
 ;now calculating
 	mov ax, [a]	; in ax - a
-	mul [a]		; in ax - a^2
+	imul [a]		; in ax - a^2
 
 	jnc next
 	call carry	; printf if overflow
@@ -202,13 +203,13 @@ start:	mov ax, @data
 next:	push ax		; a^2	in stack	
 
 	mov ax, [b]	; in ax - b
-	mul [b]
+	imul [b]
 	
 	jnc next1
 	call carry
 	jmp ending
 
-next1:	mul [b]		; in ax - b^3
+next1:	imul [b]		; in ax - b^3
 
 	jnc next2
 	call carry
@@ -216,10 +217,10 @@ next1:	mul [b]		; in ax - b^3
 		
 next2:	pop bx		; in bx - a^2 
 	cmp bx, ax	; comparing a^2 and b^3
-	jge bxLess	; if a^2 >= b^3 go bxLess
+	jge bxLessF 	; if a^2 >= b^3 go bxLess
 ; if not - continkkue
 	mov ax, [c]	; in ax - c
-	mul [b]		; in ax - c * b
+	imul [b]		; in ax - c * b
 
 	jnc next3
 	call carry
@@ -228,7 +229,9 @@ next2:	pop bx		; in bx - a^2
 next3:	push ax		; in stack - c * b
 	
 	mov ax, d	; in ax - d
-	div b		; in ax - d / b
+	xor dx, dx
+	cwd
+	idiv b		; in ax - d / b
 	
 	pop bx		; in bx - c * b
 	
@@ -241,14 +244,14 @@ next3:	push ax		; in stack - c * b
 ; ax is ready, now we need to exit
 	jmp finalRes
 axEqbx:	mov ax, [a]	; in ax - a
-	mul [a]		; in ax - a^2
-	mul [a]		; in ax - a^3
+	imul [a]		; in ax - a^2
+	imul [a]		; in ax - a^3
 	push ax		; in stack - a^3
 	mov ax, [b]
-	mul [b]		; in ax - b ^2
+	imul [b]		; in ax - b ^2
 	push ax		; stack: 1) b^2 2) a^3
 	mov ax, [c]
-	mul [c]		; in ax - c^2
+	imul [c]		; in ax - c^2
 	mov bx, ax	; in bx - c ^2
 	pop ax		; in ax - b^2
 	sub ax, bx	; in ax - b^2 - c^2
@@ -261,22 +264,28 @@ axEqbx:	mov ax, [a]	; in ax - a
 	int 21h
 	jmp ending
 
-	pop ax		; in ax - a^3
-notZero:div bx		; in ax - a^3 / (b^2 - c^2)
+bxLessF:jmp bxLess
+
+notZero:pop ax		; in ax - a^3
+	xor dx, dx
+	cwd
+	idiv bx		; in ax - a^3 / (b^2 - c^2)
 	
 	push ax		; in stack - a^3 / (...)
 	mov ax, [b]
-	mul [b]		; in ax - b^2
+	imul [b]		; in ax - b^2
 	add ax, 24	; in ax - b^2 + 24
 	push ax		; in stack - 1) a^3 / (...) 2) b^2 + 24
 
 	mov ax, [d]
-	mul [d]		; in ax - d^2	
+	imul [d]		; in ax - d^2	
 	mov bx, ax	; in bx - d^2
 	
 	pop ax		; in ax - b^2 + 24
 
-	div bx		; in ax - (b^2 + 24) / d^2
+	xor dx, dx
+	cwd
+	idiv bx		; in ax - (b^2 + 24) / d^2
 
 	pop bx		; in bx - a^3 / (...)	
 	add ax, bx	; in ax - a^3 / (b^2 - c^2) + (b^2+24)/d^2
@@ -285,7 +294,7 @@ notZero:div bx		; in ax - a^3 / (b^2 - c^2)
 ; ax is ready, now we need to exit
 	jmp finalRes	; ax is ready, now we need to exit		
 bxLess:	mov ax, [a]	; in ax - a
-	mul [c]		; in ax - c * a
+	imul [c]		; in ax - c * a
 	sub ax, [b]	; in ax - c * a - b
 ; ax is ready	
 finalRes:
@@ -296,7 +305,6 @@ finalRes:
 	int 21h
 
 	call output
-		
 ending:	mov ah, 4ch
 	int 21h
 end start
