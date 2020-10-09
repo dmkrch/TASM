@@ -14,6 +14,9 @@ result db "result = $"
 zeroMsg db "can't divide by zero", 10, 10, '$'
 ten dw 10	
 sign db 0
+limTop dw 32768
+
+
 .code
 ; procedure that inputs number in bx
 input proc	
@@ -67,8 +70,13 @@ symbLes:mov cl, al		; in cl - code of symbol
 	sub cl, '0'		; in cl - 0-9
 
 	mov ax, bx		; in ax - bx
-	mul [ten]		; in ax - bx * 10
-	jnc notCary		; if carry flag is not set just continue work
+	mul [ten]		; in ax - bx * 10	
+	jnc notCary1
+
+notCary1:
+	cmp ax, [limTop]
+	jb notCary
+
 	
 	mov cx, 7
 lp4:	call delete
