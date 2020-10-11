@@ -1,9 +1,11 @@
 model small
 .stack 100h
 .data
-vowel_message db "letter is vowel", 10, 13, '$'
-consonant_message db "letter is consonant", 10, 13, '$'
-not_symbol_message db "not a letter", 10, 13, '$'
+line db 50 dup (?)
+line_new db 20 dup (?)
+line_length db 20
+new_line_length db 75
+
 
 vowels_array db 65, 69, 73, 79, 85, 89, 97, 101, 105, 111, 117, 121
 vowels_arr_len db 12
@@ -11,13 +13,70 @@ vowels_arr_len db 12
 symbol_status db (?)
 
 .code
+
+;function inputs string. si points to begin of input line. cx has line length
+Input_line proc
+	push bx
+	push cx
+	push ax
+	push si
+	push di
+
+;using bx as an additional counter. cx has line length
+	xor bx, bx
+lp1:
+	cmp cx, 3
+	je put_enter	
+
+	xor ax, ax
+	mov ah, 01h
+	int 21h
+		
+	cmp al, 13	
+	jne not_enter
+put_enter:
+	mov al, 10
+	stosb
+	mov al, 13
+	stosb
+	mov al, '$'
+	stosb	
+	jmp end_lp1
+
+not_enter:	
+	stosb
+	dec cx	
+	jmp lp1	
+end_lp1:	
+	pop di
+	pop si
+	pop ax
+	pop cx
+	pop bx
+	ret
+Input_line endp
+
+
+
+
+
+
+;function reads symbol from al. Sets variable to:
+;0 - not a letter, 1 - vowel, 2 - consonant
 Vowel_Or_Consonant proc
+	push ax
+	push cx
+	push di
+
 	cld
 	mov cl, [vowels_arr_len]
 	lea di, vowels_array
 
 	repne scasb
 	je is_vowel
+	
+	;now we know that our symbol is not vowel. We need to check if it is in 'letter' diaposon. If so, - 
+	;it is consonant. If not - symbol is not a letter
 	
 	;( al >= 64 && al <= 90) || (al >= 97 && al  <= 122)
 	cmp al, 64
@@ -32,37 +91,110 @@ next_comp:
 	cmp al, 122
 	jg not_letter
 is_consonant:
-	lea dx, consonant_message
-	mov ah, 09h
-	int 21h
+	mov [symbol_status], 2
 	jmp end_procedure
 not_letter:
-	lea dx, not_symbol_message
-	mov ah, 09h
-	int 21h
+	mov [symbol_status], 0
 	jmp end_procedure
 is_vowel:
-	dec di
-	lea dx, vowel_message
-	mov ah, 09h
-	int 21h
+	mov [symbol_status], 1
+
 end_procedure:	
+	pop di
+	pop cx
+	pop ax
 	ret
 Vowel_Or_Consonant endp		
 
 
 
+
+;main function
 start:
 	mov ax, @data
 	mov ds, ax
 	mov es, ax
+	
+	lea di, line	
+	xor cx, cx
+	mov cl, [line_length]
 
+	call Input_line
+	
+	xor cx, cx
+	mov cx, 1	
+	lea di, line_new
+loop1:	
+	lea si, line
+	add si, cx
+	dec si
 	xor ax, ax
-	mov ah, 01h
+	lodsb
+	cmp al, 10
+	je end_loop1	
+	
+	mov ax, cx
+	mov bx, 2
+	div bx
+
+	cmp dx, 1
+	je odd_index
+	even_index:
+		lea si, line
+		add si, cx
+		dec si
+		xor ax, ax
+		lodsb
+		; now in al - code of each symbol
+			
+		call Vowel_Or_Consonant
+	
+		cmp symbol_status, 2
+		je even_consonant 
+		even_vowel:
+			stosb
+			jmp continue_loop1
+		even_consonant:		
+			stosb
+			stosb
+			jmp continue_loop1	
+	
+	odd_index:
+		lea si, line
+		add si, cx
+		dec si
+		xor ax, ax
+		lodsb
+		; now in al - code of each symbol
+		
+		call Vowel_Or_Consonant
+		
+		cmp symbol_status, 2 
+		je odd_consonant
+		odd_vowel:
+			jmp continue_loop1
+		odd_consonant:
+			stosb
+			jmp continue_loop1
+
+continue_loop1:
+	inc cx
+	jmp loop1
+end_loop1:
+	mov al, 108
+	mov ah, 02h	
 	int 21h
-	
-	call Vowel_Or_Consonant
-	
+	mov al, 10
+	stosb
+	mov al, 13
+	stosb
+	mov al, '$'
+	stosb		
+		
+	;lea dx, line_new	
+	;mov ah, 09h
+	;int 21h
+		
 	mov ah, 4ch
 	int 21h
 end start
