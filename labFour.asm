@@ -2,8 +2,8 @@ model small
 .stack 100h
 .data
 line db 50 dup (?)
-line_new db 20 dup (?)
-line_length db 20
+line_new db 75 dup (?)
+line_length db 50
 new_line_length db 75
 
 
@@ -120,7 +120,7 @@ start:
 	mov cl, [line_length]
 
 	call Input_line
-	
+
 	xor cx, cx
 	mov cx, 1	
 	lea di, line_new
@@ -132,12 +132,16 @@ loop1:
 	lodsb
 	cmp al, 10
 	je end_loop1	
-	
-	mov ax, cx
-	mov bx, 2
-	div bx
 
-	cmp dx, 1
+	mov al, cl
+	mov bl, 2
+	div bl 
+
+	;mov ax, cx
+	;mov bx, 2
+	;div bx
+	
+	cmp ah, 1
 	je odd_index
 	even_index:
 		lea si, line
@@ -181,21 +185,17 @@ continue_loop1:
 	inc cx
 	jmp loop1
 end_loop1:
-	mov al, 108
-	mov ah, 02h	
-	int 21h
 	mov al, 10
 	stosb
 	mov al, 13
 	stosb
 	mov al, '$'
 	stosb		
-		
-	;lea dx, line_new	
-	;mov ah, 09h
-	;int 21h
+	
+	lea dx, line_new
+	mov ah, 09h
+	int 21h		
 		
 	mov ah, 4ch
 	int 21h
 end start
-
