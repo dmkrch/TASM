@@ -155,6 +155,8 @@ loop1:
 	
 		cmp symbol_status, 2
 		je even_consonant 
+		cmp symbol_status, 0
+		je even_not_letter
 		even_vowel:
 			stosb
 			jmp continue_loop1
@@ -162,6 +164,9 @@ loop1:
 			stosb
 			stosb
 			jmp continue_loop1	
+		even_not_letter:
+			stosb
+			jmp continue_loop1
 	
 	odd_index:
 		lea si, line
@@ -175,9 +180,14 @@ loop1:
 		
 		cmp symbol_status, 2 
 		je odd_consonant
+		cmp symbol_status, 0
+		je odd_not_letter
 		odd_vowel:
 			jmp continue_loop1
 		odd_consonant:
+			stosb
+			jmp continue_loop1
+		odd_not_letter:
 			stosb
 			jmp continue_loop1
 
