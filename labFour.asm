@@ -1,10 +1,10 @@
 model small
 .stack 100h
 .data
-line db 50 dup (?)
-line_new db 75 dup (?)
-line_length db 50
-new_line_length db 75
+line db 100 dup (?)
+line_new db 150 dup (?)
+line_length db 100
+new_line_length db 150
 
 
 vowels_array db 65, 69, 73, 79, 85, 89, 97, 101, 105, 111, 117, 121
