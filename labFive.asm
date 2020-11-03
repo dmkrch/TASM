@@ -1,13 +1,13 @@
 model small
 .stack 100h
 .data
-rows dw 4
-columns dw 3
 array dw 50 dup(?)
+rows dw (?)
+columns dw (?)
 array_size dw (?)
 size_of_element dw 2
-single_byte db (?)
-line_for_read db 30 dup(?)
+single_byte dw (?)
+ten dw 10
 
 
 file_name db "input.txt", 0
@@ -53,8 +53,13 @@ Open_Existing_File endp
 
 
 
-; function reads from opened file next number. Puts this number to ax
+; function reads from opened file next number. Puts this number to cx
 Read_Next_Number_From_File proc
+	push ax
+	push bx
+	push dx
+	push si
+
 	xor cx, cx			; we will use cx for readed number
 read_symbol_cycle:
 	push cx
@@ -78,7 +83,7 @@ read_symbol_cycle:
 	mov ax, cx
 	mul bx
 	sub [single_byte], 48
-	add al, [single_byte]
+	add ax, [single_byte]
 	mov cx, ax
 	;now in cx - cx * 10 + digit
 	jmp continue_read_symbol_cycle
@@ -97,6 +102,11 @@ continue_read_symbol_cycle:
 	jmp read_symbol_cycle			; if not end of file - continue reading
 
 end_read_symbol_cycle:
+
+	pop si
+	pop dx
+	pop bx
+	pop ax
 	ret
 Read_Next_Number_From_File endp
 
@@ -104,13 +114,8 @@ Read_Next_Number_From_File endp
 
 
 
-start:
-	mov ax, @data
-	mov ds, ax
-	mov es, ax
-
-	jmp loop_end
-
+; function shows values in variable 'array', according to variables 'rows' and 'columns'
+Show_Two_Dimensional_Array proc
 	mov bx, 0
 loop_rows:
 	cmp bx, [rows]
@@ -126,7 +131,7 @@ loop_rows:
 		;so we push these values to be sure we wont lose them after some actions
 		push cx
 		push bx
-			
+		
 		mov ax, [size_of_element]
 		mul [columns]
 		mul bx
@@ -138,29 +143,92 @@ loop_rows:
 		mov si, ax
 		; now si is ready (offset j)		
 
-		mov dx, array[bx][si]
-		mov ah, 02h
-		int 21h
+		mov bx, array[bx][si]
+		call Show_Number
 	
+		mov dl, 32		; printing space 2 times
+		mov ah, 02h	
+		int 21h
+		int 21h
+
 		pop bx	
 		pop cx	
 		inc cx
 		jmp loop_columns		
 	loop_columns_end:		
-	mov dx, 10
+	mov dx, 10			; printing new line symbol 2 times
 	mov ah, 02h
 	int 21h
-	mov dx, 13
 	int 21h
 
 	pop bx	
 	inc bx
 	jmp loop_rows
 
-loop_end:
+loop_end:	
+	ret
+Show_Two_Dimensional_Array endp
+
+
+
+
+; function prints number in bx
+Show_Number proc
+	push ax
+	push bx
+	push cx
+	push dx
+	
+	xor cx, cx
+	mov ax, bx
+	
+	test bx, bx			; if bx is negative
+	jns lp2
+	neg bx
+	
+	mov dl, 45
+	mov ah, 02h	
+	int 21h
+
+	
+	mov ax, bx
+
+lp2:
+	xor dx, dx
+	inc cx
+	div [ten] 			; in ax - number / 10
+	push dx				; in stack - digits vice verca
+	cmp ax, 0
+	jnz lp2
+
+lp3:	
+	pop dx
+	add dx, '0'
+	mov ah, 02h
+	int 21h
+
+	loop lp3
+
+end_lp2:
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	ret
+Show_Number endp
+
+
+
+
+
+start:
+	mov ax, @data
+	mov ds, ax
+	mov es, ax
+
 	call Open_Existing_File 
 
-	cmp [file_error_code], 0
+	cmp [file_error_code], 0		; if code = 0 - file is succesfully opened
 	jne failed_to_open
 	
 	lea dx, file_open_success_message
@@ -176,6 +244,18 @@ file_opened:
 	
 	call Read_Next_Number_From_File
 	mov [columns], cx
+
+	mov cx, [array_size]
+	lea di, array
+loop_input_array:
+	push cx
+	call Read_Next_Number_From_File
+	mov ax, cx
+	pop cx
+	stosw	
+	loop loop_input_array
+	
+	call Show_Two_Dimensional_Array
 
 	jmp end_prog
 failed_to_open:	
