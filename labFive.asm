@@ -3,8 +3,11 @@ model small
 .data
 rows dw 4
 columns dw 3
+array dw 50 dup(?)
+array_size dw (?)
 size_of_element dw 2
-array dw 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81
+single_byte db (?)
+line_for_read db 30 dup(?)
 
 
 file_name db "input.txt", 0
@@ -45,6 +48,58 @@ end_open:
 	pop ax
 	ret
 Open_Existing_File endp
+
+
+
+
+
+; function reads from opened file next number. Puts this number to ax
+Read_Next_Number_From_File proc
+	xor cx, cx			; we will use cx for readed number
+read_symbol_cycle:
+	push cx
+	
+	mov bx, [file_handle]		; file handle to bx
+	lea dx, single_byte		; offset of single byte to dx
+	mov ah, 3fh			; code of function to ah
+	mov cx, 1			; 1 byte to read from file
+	int 21h	
+	; now in single_byte next symbol from file	
+
+	pop cx
+
+	cmp [single_byte], 48
+	jl symbol_not_digit
+	cmp [single_byte], 57
+	jg symbol_not_digit
+	
+	;here we know that symbol is digit
+	mov bx, 10
+	mov ax, cx
+	mul bx
+	sub [single_byte], 48
+	add al, [single_byte]
+	mov cx, ax
+	;now in cx - cx * 10 + digit
+	jmp continue_read_symbol_cycle
+
+symbol_not_digit:
+	cmp cx, 0
+	jne end_read_symbol_cycle		; if cx != 0 - end of cycle
+	jmp continue_read_symbol_cycle		; if cx == 0 - continue reading
+continue_read_symbol_cycle:
+	mov ax, 4406h
+	mov bx, [file_handle]
+	int 21h					; calling function to check for eof
+	cmp al, 0
+	je end_read_symbol_cycle		; if cl == 0 - end of file
+	
+	jmp read_symbol_cycle			; if not end of file - continue reading
+
+end_read_symbol_cycle:
+	ret
+Read_Next_Number_From_File endp
+
 
 
 
@@ -101,6 +156,7 @@ loop_rows:
 	pop bx	
 	inc bx
 	jmp loop_rows
+
 loop_end:
 	call Open_Existing_File 
 
@@ -110,8 +166,18 @@ loop_end:
 	lea dx, file_open_success_message
 	mov ah, 09h
 	int 21h
-	jmp file_opened
 
+file_opened:	
+	call Read_Next_Number_From_File	
+	mov [array_size], cx
+	
+	call Read_Next_Number_From_File
+	mov [rows], cx
+	
+	call Read_Next_Number_From_File
+	mov [columns], cx
+
+	jmp end_prog
 failed_to_open:	
 	lea dx, file_open_fail_message
 	mov ah, 09h
@@ -122,12 +188,7 @@ failed_to_open:
 	mov ah, 02h
 	int 21h
 
-file_opened:	
-	
-	
-
-
-
+end_prog:		
 	mov ah, 4ch
 	int 21h
 end start
