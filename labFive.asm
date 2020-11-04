@@ -9,6 +9,10 @@ size_of_element dw 2
 single_byte dw (?)
 ten dw 10
 sign dw 0
+max_element dw (?)
+min_element dw (?)
+offset_si dw (?)
+offset_bx dw (?)
 
 
 file_name db "input.txt", 0
@@ -130,6 +134,13 @@ Read_Next_Number_From_File endp
 
 ; function shows values in variable 'array', according to variables 'rows' and 'columns'
 Show_Two_Dimensional_Array proc
+	push ax
+	push bx
+	push cx	
+	push dx
+	push si
+	push di
+	
 	mov bx, 0
 loop_rows:
 	cmp bx, [rows]
@@ -180,6 +191,12 @@ loop_rows:
 	jmp loop_rows
 
 loop_end:	
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	pop ax
 	ret
 Show_Two_Dimensional_Array endp
 
@@ -243,22 +260,27 @@ start:
 	call Open_Existing_File 
 
 	cmp [file_error_code], 0		; if code = 0 - file is succesfully opened
-	jne failed_to_open
+	;jne failed_to_open_file
 	
 	lea dx, file_open_success_message
 	mov ah, 09h
 	int 21h
 
 file_opened:	
+	; reading amount of elements to variable 'array_size'
 	call Read_Next_Number_From_File	
 	mov [array_size], cx
-	
+
+	;reading amount of rows to variable 'rows'	
 	call Read_Next_Number_From_File
 	mov [rows], cx
-	
+
+	; reading amount of columns to variable 'columns'	
 	call Read_Next_Number_From_File
 	mov [columns], cx
 
+
+	; now reading numbers from file to our 2-dim-array
 	mov cx, [array_size]
 	lea di, array
 loop_input_array:
@@ -268,11 +290,86 @@ loop_input_array:
 	pop cx
 	stosw	
 	loop loop_input_array
+
+
+
+
+	; now we can do any actions we want with our 2-dim-array	
+	call Show_Two_Dimensional_Array
 	
+	; here actions with columns
+	mov bx, 0
+loop1_rows:
+	cmp bx, [columns]
+	je loop1_end
+
+	mov cx, 0
+	push bx
+	
+	; calculatin offset of bx = size * bx (just counter)		
+	mov ax, [size_of_element]
+	mul bx
+	mov bx, ax
+	
+	; moving first element of current column to 'max_element'	
+	mov dx, array[bx][0]		
+	mov [max_element], dx		
+
+	loop1_columns:
+		cmp cx, [rows]
+		je loop1_columns_end
+		; bx, cx are forbidden to use here. Or use push & pop to save the values 
+
+
+		; calculating offset of si = size * columns * cx (just counter)
+		mov ax, [size_of_element]
+		mul [columns]
+		mul cx	
+		mov si, ax
+		; now there are two offsets:   1) bx offset of j index   2) si offset of i index 	
+
+		inc array[si][bx]		; incrementing element
+
+		mov ax, array[si][bx]	
+		cmp ax, [max_element]
+		jle not_bigger
+		; if current element is bigger than max_element.
+		; 1. we move this max element to variable 'max_element'
+		; 2. we move si offset to variable 'offset_si'
+		; 3. we move bx offset to variable 'offset_bx'
+		mov [max_element], ax
+		mov [offset_si], si
+		mov [offset_bx], bx
+
+	not_bigger:
+		inc cx
+		jmp loop1_columns		
+	loop1_columns_end:	
+	; here we have max element of each column in variable 'max_element' and offsets in variables	
+	mov si, [offset_si]
+	mov bx, [offset_bx]	
+	mov cx, [array_size]
+	dec cx
+	sub array[si][bx], cx
+
+	pop bx	
+	inc bx
+	jmp loop1_rows
+
+loop1_end:	
+
+
+	; here actions with rows
+
+	mov dl, 10
+	mov ah, 02h
+	int 21h
+	int 21h
+
 	call Show_Two_Dimensional_Array
 
 	jmp end_prog
-failed_to_open:	
+failed_to_open_file:	
 	lea dx, file_open_fail_message
 	mov ah, 09h
 	int 21h
