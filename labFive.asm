@@ -299,6 +299,7 @@ loop_input_array:
 	
 	; here actions with columns
 	mov bx, 0
+	;jmp loop2_rows
 loop1_rows:
 	cmp bx, [columns]
 	je loop1_end
@@ -359,13 +360,72 @@ loop1_rows:
 loop1_end:	
 
 
+
 	; here actions with rows
+	mov bx, 0
+loop2_rows:
+	cmp bx, [rows]
+	je loop2_end
 
-	mov dl, 10
+	mov cx, 0
+	push bx
+	
+	; calculating offset of bx = size * bx (just counter) * rows	
+	mov ax, [size_of_element]
+	mul bx
+	mul [columns]			; maybe there is an error !!!!!!!!!!!!!1
+	mov bx, ax
+	
+	; moving first element of current row to 'min_element'	
+	mov dx, array[bx][0]		
+	mov [min_element], dx		
+
+	loop2_columns:
+		cmp cx, [columns]
+		je loop2_columns_end
+		; bx, cx are forbidden to use here. Or use push & pop to save the values 
+
+
+		; calculating offset of si = size * cx (just counter)
+		mov ax, [size_of_element]
+		mul cx	
+		mov si, ax
+		; now there are two offsets:   1) bx offset of i index   2) si offset of j index 	
+
+		dec array[bx][si]		; decrementing element
+
+		mov ax, array[si][bx]	
+		cmp ax, [min_element]
+		jge not_less
+		; if current element is bigger than max_element.
+		; 1. we move this max element to variable 'max_element'
+		; 2. we move si offset to variable 'offset_si'
+		; 3. we move bx offset to variable 'offset_bx'
+		mov [min_element], ax
+		mov [offset_si], si
+		mov [offset_bx], bx
+
+	not_less:
+		inc cx
+		jmp loop2_columns		
+	loop2_columns_end:	
+	; here we have min element of each row in variable 'min_element' and offsets in variables	
+	mov si, [offset_si]
+	mov bx, [offset_bx]	
+	mov cx, [array_size]
+	dec cx
+	add array[bx][si], cx
+
+	pop bx	
+	inc bx
+	jmp loop2_rows
+
+loop2_end:	
 	mov ah, 02h
+	mov dl, 10
 	int 21h
 	int 21h
-
+	
 	call Show_Two_Dimensional_Array
 
 	jmp end_prog
