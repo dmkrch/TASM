@@ -8,6 +8,7 @@ array_size dw (?)
 size_of_element dw 2
 single_byte dw (?)
 ten dw 10
+sign dw 0
 
 
 file_name db "input.txt", 0
@@ -59,6 +60,7 @@ Read_Next_Number_From_File proc
 	push bx
 	push dx
 	push si
+	push [sign]
 
 	xor cx, cx			; we will use cx for readed number
 read_symbol_cycle:
@@ -72,7 +74,14 @@ read_symbol_cycle:
 	; now in single_byte next symbol from file	
 
 	pop cx
+	
+	cmp [single_byte], 45
+	jne next_comparison
+	mov [sign], 1
+	jmp continue_read_symbol_cycle
 
+
+next_comparison:
 	cmp [single_byte], 48
 	jl symbol_not_digit
 	cmp [single_byte], 57
@@ -102,7 +111,12 @@ continue_read_symbol_cycle:
 	jmp read_symbol_cycle			; if not end of file - continue reading
 
 end_read_symbol_cycle:
+	cmp sign, 0
+	je skip_negative_number_actions		; if sign == 0  -> number is positive
+	neg cx
 
+skip_negative_number_actions:	
+	pop [sign]	
 	pop si
 	pop dx
 	pop bx
