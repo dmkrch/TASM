@@ -14,8 +14,8 @@ min_element dw (?)
 offset_si dw (?)
 offset_bx dw (?)
 
-
-file_name db "input.txt", 0
+file_output_name db "output.txt", 0
+file_input_name db "input.txt", 0
 file_open_fail_message db "Failed to open existing file", 10, 13, '$'
 file_open_success_message db "File successfully opened", 10, 13, '$'
 file_handle dw (?)
@@ -25,17 +25,15 @@ file_error_code dw (?)
 .code	
 
 ; function opens file. It needs the following variables:
-; 1. 'file_name' that contains name of file
+; 1. dx, that contains the offset of string with name
 ; 2. 'file_handle' that will contain file handle in case of success opening file.
 ; 3. 'file_error_code' will contain error code in case of failure to open file. If success - 0
 Open_Existing_File proc
 	push ax
 	push bx
-	push dx
 	
 	mov ah, 3dh			; code of function that opens file
-	mov al, 0			; 0 - read-only. 1 - write-only. 3-read\write
-	lea dx, file_name		; address of string with file name
+	mov al, 2			; 0 - read-only. 1 - write-only. 2-read\write
 	int 21h	
 
 	jc file_open_fail		; if carry flag is set - failed to open file
@@ -48,7 +46,6 @@ file_open_fail:
 	mov [file_error_code], ax 	; moving code of error to variable 'file_error_code'
 	
 end_open:
-	pop dx	
 	pop bx
 	pop ax
 	ret
@@ -58,8 +55,20 @@ Open_Existing_File endp
 
 
 
+; function closes opened file. It needs the following variables:
+; 1. 'file handle' that contains file handle
+Close_Opened_File proc
+	mov ah, 3Eh
+	mov bx, [file_handle]
+	int 21h	
+	ret
+Close_Opened_File endp
+
+
+
+
 ; function reads from opened file next number. Puts this number to cx
-Read_Next_Number_From_File proc
+ Read_Next_Number_From_File proc
 	push ax
 	push bx
 	push dx
@@ -129,6 +138,65 @@ skip_negative_number_actions:
 Read_Next_Number_From_File endp
 
 
+
+
+
+;function writes number from ax to file
+Write_Number_To_File proc			
+; 1. We need to know whether number is negative or positive. If negative - write '-' and neg it 
+; 2. Then we divide number by 10 and push remainder to stack
+; 3. Then we pop elements one by one and print them to file
+	push ax
+	push bx
+	push cx
+	push dx
+
+; 1.
+	test ax, ax
+	jns number_is_ready
+	neg ax
+
+	push ax
+	
+	mov [single_byte], 45
+	mov ah, 40h
+	mov bx, [file_handle]
+	mov cx, 1
+	lea dx, single_byte
+	int 21h
+	
+	pop ax
+; 2.		
+number_is_ready:
+	xor cx, cx
+loop_take_digits:
+	xor dx, dx
+	div [ten]				; in ax - number / 10
+	push dx					; in stack - digits of number vice verca
+	inc cx
+	cmp ax, 0
+	jnz loop_take_digits
+
+; 3.
+loop_write_digits_to_file:
+	pop [single_byte]
+	add [single_byte], '0'
+	push cx
+	mov ah, 40h
+	mov bx, [file_handle]
+	mov cx, 1
+	lea dx, single_byte
+	int 21h
+	pop cx
+	
+	loop loop_write_digits_to_file
+		
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	ret
+Write_Number_To_File endp
 
 
 
@@ -256,16 +324,14 @@ start:
 	mov ax, @data
 	mov ds, ax
 	mov es, ax
-
+	
+	lea dx, file_input_name
 	call Open_Existing_File 
 
 	cmp [file_error_code], 0		; if code = 0 - file is succesfully opened
-	;jne failed_to_open_file
-	
-	lea dx, file_open_success_message
-	mov ah, 09h
-	int 21h
+	;jne failed_to_open_input_file
 
+	
 file_opened:	
 	; reading amount of elements to variable 'array_size'
 	call Read_Next_Number_From_File	
@@ -290,6 +356,9 @@ loop_input_array:
 	pop cx
 	stosw	
 	loop loop_input_array
+	; now we can close the file. everything is readed
+	call Close_Opened_File
+
 
 
 
@@ -373,7 +442,7 @@ loop2_rows:
 	; calculating offset of bx = size * bx (just counter) * rows	
 	mov ax, [size_of_element]
 	mul bx
-	mul [columns]			; maybe there is an error !!!!!!!!!!!!!1
+	mul [columns]			
 	mov bx, ax
 	
 	; moving first element of current row to 'min_element'	
@@ -421,23 +490,75 @@ loop2_rows:
 	jmp loop2_rows
 
 loop2_end:	
+	; showing array on screen
 	mov ah, 02h
 	mov dl, 10
 	int 21h
-	int 21h
-	
+	int 21h	
 	call Show_Two_Dimensional_Array
 
-	jmp end_prog
-failed_to_open_file:	
-	lea dx, file_open_fail_message
-	mov ah, 09h
-	int 21h
+
+
+
+
+
+	; all actions with 2-dim-array done. Now we can write it to output file
+	lea dx, file_output_name
+	call Open_Existing_File
+	; here we need to write array to file
+	
+	lea si, array
+	mov cx, [array_size]
+	mov bx, 1			; just counter for \n symbols
+loop_write_file:
+	lodsw				; in ax - number to write 
+	call Write_Number_To_File
 		
-	mov dx, [file_error_code]
-	add dx, 48
-	mov ah, 02h
+	; checking if this element is last in row	
+	cmp bx, [columns]
+	jne print_space
+
+	push cx
+	push bx
+
+	; if last element of row we print '\n\n'
+	mov ah, 40h
+	mov [single_byte], 10
+	mov bx, [file_handle]
+	mov cx, 1
+	lea dx, single_byte
 	int 21h
+	mov ah, 40h
+	int 21h
+	
+	pop bx 
+	pop cx
+
+	mov bx, 0
+	jmp continue_loop_write_file
+
+	; if element is not last - just printing space	
+print_space:
+	push bx
+	push cx
+
+	mov [single_byte], ' '
+	mov ah, 40h
+	mov bx, [file_handle]
+	mov cx, 1
+	lea dx, single_byte
+	int 21h
+	mov ah, 40h
+	int 21h
+	
+	pop cx	
+	pop bx
+
+continue_loop_write_file:
+	inc bx	
+	loop loop_write_file
+	
+	call Close_Opened_File	
 
 end_prog:		
 	mov ah, 4ch
