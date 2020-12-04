@@ -1,7 +1,7 @@
 model small
 .stack 100h
 .data
-array dw 50 dup(?)
+array dw 100 dup(?)
 rows dw (?)
 columns dw (?)
 array_size dw (?)
